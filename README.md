@@ -1,1 +1,1 @@
-# Heart-Rate-Modeling-for-Personalized-Fitness-Recommendations
+📄 XR Twin Heart Rate Prediction Model
