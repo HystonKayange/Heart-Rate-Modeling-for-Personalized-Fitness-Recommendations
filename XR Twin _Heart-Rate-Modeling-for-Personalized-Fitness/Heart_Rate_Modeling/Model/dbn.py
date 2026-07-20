@@ -27,8 +27,10 @@ class DBNConfig:
     # was actually trained for the paper (linear emission head, no AdaFS).
     use_adafs: bool = False
     use_physiological_head: bool = False
-    hr_min_bounds: tuple = (40.0, 110.0)
-    hr_max_bounds: tuple = (110.0, 215.0)
+    # Bounds taken from the hybrid-ODE model of ref. [4] (Nazaret et al.,
+    # ml-heart-rate-models, ode/ode.py), the codebase this model was adapted from.
+    hr_min_bounds: tuple = (40.0, 90.0)
+    hr_max_bounds: tuple = (140.0, 210.0)
 
 class AdaFSSoft(nn.Module):
     def __init__(self, input_dim, seq_length, dropout):
