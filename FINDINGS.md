@@ -33,6 +33,27 @@ initialization distribution in `best_model.pt`:
 Parameters not reached by the forward pass receive no gradient, so Adam leaves
 them untouched. They are present in the checkpoint but were never trained.
 
+**Independent corroboration from the original environment.** The repository tracks
+Python 3.8 bytecode compiled on the original lab machine (`d:\Final_code\`,
+July-August 2024). Decompiling `Model/__pycache__/dbn.cpython-38.pyc` yields a
+`forecast_batch` identical to the committed source: `transition_model` ->
+`emission_model`, with no call to `adafs_soft` and no use of the personalized
+scalars.
+
+The `.pyc` headers also record each source file's size at compile time, and all
+five match the committed sources exactly:
+
+| file | committed | recorded in 2024 `.pyc` |
+|---|---|---|
+| `dbn.py` | 11,677 | 11,677 |
+| `data.py` | 17,336 | 17,336 |
+| `trainer.py` | 5,558 | 5,558 |
+| `modules_lstm.py` | 1,981 | 1,981 |
+| `modules_dense_nn.py` | 1,762 | 1,762 |
+
+The published repository is therefore the code that ran. An earlier hypothesis
+that a wrong snapshot had been uploaded is not supported.
+
 ## 2. Adaptive feature selection was never executed
 
 `AdaFSSoft` is called only from `DBNModel.forward()` (`dbn.py:185`). Training and
@@ -96,8 +117,25 @@ fall.
 Evaluation also covers only the first 64 steps (~10.7 min at the 10 s grid) of each
 workout; `forecast_batch` truncates and `trainer.py:107-110` truncates ground truth
 to match. Figures 6 and 8 show 35-47 minute sessions, which this path cannot
-produce. The source for those figures (`plotting.py`, `evaluation.py`) is not in
-the repository; only `.pyc` bytecode survives in `examples/__pycache__/`.
+produce.
+
+`plotting.py` and `evaluation.py` were never uploaded, but both were recovered by
+decompiling their `.pyc`. `plotting.py` (compiled 2024-08-05) calls
+`forecast_single_workout` and then reads `predictions["hr_min"]` and
+`predictions["hr_max"]`, with a docstring referring to "the ODE parameters for the
+workout". The committed `forecast_single_workout` returns only `heart_rate`, so
+this module raises `KeyError` against the model as released. It appears to be
+leftover scaffolding from the hybrid-ODE codebase of ref. [4] and cannot have
+produced Figures 6-9.
+
+## Environment note (not a defect)
+
+`preprocess.py` cannot run under pandas 3.x. `pd.date_range` now returns
+`datetime64[s]` where every earlier pandas returned `datetime64[ns]`, so the
+`/1e9` nanosecond conversion at line 170 is off by a factor of 1e9, yielding
+speeds around 4.7e9 m/s and emptying the frame at the 5-40 km/h filter. Under
+pandas 2.3.3 the same unmodified code computes `dt = 10.0 s` correctly. This is
+environment drift, not an error in the preprocessing code.
 
 ---
 
