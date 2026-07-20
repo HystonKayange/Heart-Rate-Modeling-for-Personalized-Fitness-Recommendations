@@ -23,6 +23,12 @@ class DBNConfig:
     dropout: float = 0.2
     clip_gradient: float = 1.0
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    # Ablation switches. Both default to False, which reproduces the model that
+    # was actually trained for the paper (linear emission head, no AdaFS).
+    use_adafs: bool = False
+    use_physiological_head: bool = False
+    hr_min_bounds: tuple = (40.0, 110.0)
+    hr_max_bounds: tuple = (110.0, 215.0)
 
 class AdaFSSoft(nn.Module):
     def __init__(self, input_dim, seq_length, dropout):
@@ -30,39 +36,47 @@ class AdaFSSoft(nn.Module):
         self.seq_length = seq_length
         self.input_dim = input_dim
         self.feature_dim = input_dim // seq_length
-        self.controller = ControllerMLP(input_dim=input_dim, embed_dims=[input_dim], dropout=dropout)
+        self.controller = ControllerMLP(
+            input_dim=input_dim, embed_dims=[input_dim], dropout=dropout, feature_dim=self.feature_dim
+        )
 
     def forward(self, field):
-        batch_size = field.size(0)
-        flattened_dim = field.size(1)
-        
-        if flattened_dim != self.input_dim:
-            raise ValueError(f"Input dimension mismatch: expected {self.input_dim}, got {flattened_dim}")
+        """
+        Weight each feature channel at each time step by its learned relevance.
 
-        field = field / field.norm(dim=-1, keepdim=True)  # Normalize embeddings
-        weights = self.controller(field)
-        
-        seq_length = self.seq_length
-        feature_dim = flattened_dim // seq_length
+        Expects `field` of shape (batch, seq_length, feature_dim), matching the
+        (z)(alpha_n^m) formulation in the paper: one weight per feature n at each
+        step m.
+        """
+        if field.dim() != 3:
+            raise ValueError(f"Expected (batch, seq_length, feature_dim), got shape {tuple(field.shape)}")
+        batch_size, seq_length, feature_dim = field.shape
+        if seq_length != self.seq_length or feature_dim != self.feature_dim:
+            raise ValueError(
+                f"Expected (batch, {self.seq_length}, {self.feature_dim}), got {tuple(field.shape)}"
+            )
 
-        if flattened_dim != seq_length * feature_dim:
-            raise ValueError(f"Flattened dim {flattened_dim} does not match seq_length * feature_dim {seq_length * feature_dim}")
+        field = field / field.norm(dim=-1, keepdim=True).clamp_min(1e-8)
+        weights = self.controller(field.reshape(batch_size, -1))
+        weights = weights.view(batch_size, seq_length, feature_dim)
 
-        weights = weights.view(batch_size, seq_length, -1)  # Reshape weights
-        field = field.view(batch_size, seq_length, -1)  # Reshape field
-
-        field = field * weights  # Apply weights
-        return field
+        # Rescale so the average weight is 1: a plain softmax over feature_dim
+        # forces the weights to sum to 1 and would shrink the signal by ~1/feature_dim
+        # before it ever reaches the transition model.
+        return field * weights * feature_dim
 
 class ControllerMLP(nn.Module):
-    def __init__(self, input_dim, embed_dims, dropout):
+    def __init__(self, input_dim, embed_dims, dropout, feature_dim):
         super().__init__()
+        self.feature_dim = feature_dim
         self.mlp = MultiLayerPerceptron(input_dim=input_dim, embed_dims=embed_dims, dropout=dropout)
-    
+
     def forward(self, emb_fields):
-        input_mlp = emb_fields
-        output_layer = self.mlp(input_mlp)
-        return torch.softmax(output_layer, dim=1)
+        output_layer = self.mlp(emb_fields)
+        # Normalize across feature channels within each time step, not across the
+        # whole flattened sequence.
+        output_layer = output_layer.view(output_layer.size(0), -1, self.feature_dim)
+        return torch.softmax(output_layer, dim=-1).reshape(output_layer.size(0), -1)
 
 class MultiLayerPerceptron(nn.Module):
     def __init__(self, input_dim, embed_dims, dropout, output_layer=False):
@@ -167,26 +181,36 @@ class DBNModel(nn.Module):
         self.transition_model = TransitionModel(input_dim, config.lstm_hidden_dim * 2, config.encoder_embedding_dim)
         self.emission_model = EmissionModel(config.encoder_embedding_dim, 1)
 
-        # Adding Personalized Scalars for parameters
-        self.A = PersonalizedScalarNN(12, 32, 8, 1, activation=nn.ReLU(), output_activation=nn.Softplus())
-        self.B = PersonalizedScalarNN(12, 32, 8, 1, activation=nn.ReLU(), output_activation=nn.Softplus())
-        self.alpha = PersonalizedScalarNN(12, 32, 8, 1, activation=nn.ReLU(), output_activation=nn.Softplus())
-        self.beta = PersonalizedScalarNN(12, 32, 8, 1, activation=nn.ReLU(), output_activation=nn.Softplus())
-        self.hr_min = PersonalizedScalarNN(12, 32, 8, 1, activation=nn.ReLU(), output_activation=nn.Softplus())
-        self.hr_max = PersonalizedScalarNN(12, 32, 8, 1, activation=nn.ReLU(), output_activation=nn.Softplus())
-        
+        # Personalized scalars for Equation 9. Their input is the personalized
+        # latent z: the static subject/history embedding concatenated with the
+        # per-step DBN state.
+        self.dim_z = self.dim_embedding + config.encoder_embedding_dim
+        self.A = PersonalizedScalarNN(self.dim_z, 32, 8, 1, activation=nn.ReLU(), output_activation=nn.Softplus())
+        self.B = PersonalizedScalarNN(self.dim_z, 32, 8, 1, activation=nn.ReLU(), output_activation=nn.Softplus())
+        self.hr_min = DenseNN(self.dim_z, 32, 8, 1, activation=nn.ReLU(), output_bounds=config.hr_min_bounds)
+        self.hr_range = DenseNN(self.dim_z, 32, 8, 1, activation=nn.ReLU(),
+                                output_bounds=(1.0, config.hr_max_bounds[1] - config.hr_min_bounds[0]))
+        # Scalar exercise intensity I(t) derived from the activity channels.
+        self.intensity = DenseNN(config.data_config.n_activity_channels(), 8, 1,
+                                 activation=nn.ReLU(), output_activation=nn.Softplus())
+
         self.to(self.config.device)
 
-    def forward(self, workout_ids, activity, history, subject_ids):
-        embeddings = self.embedding_store.get_embeddings_from_workout_ids(workout_ids, history)
-        lstm_output, _ = self.lstm_encoder(history)
-        combined_features = torch.cat([embeddings, lstm_output, activity], dim=-1)
-        combined_features = combined_features.view(combined_features.size(0), self.seq_length, -1)  # Ensure correct shape
-        combined_features = self.adafs_soft(combined_features)
-        state_predictions = self.transition_model(combined_features)
-        predictions = self.emission_model(state_predictions)
-        return predictions
-    
+    def physiological_head(self, embeddings, state, activity):
+        """
+        Equation 9: HR(t) = HRmin + (HRmax - HRmin) * (1 - exp(-A(z) - B(z) * I(t)))
+
+        HRmax is parameterized as HRmin + hr_range so that HRmax > HRmin holds by
+        construction rather than by hoping the optimizer respects it.
+        """
+        z = torch.cat([embeddings, state], dim=-1)
+        a = self.A(z)
+        b = self.B(z)
+        hr_min = self.hr_min(z)
+        hr_max = hr_min + self.hr_range(z)
+        intensity = self.intensity(activity)
+        return (hr_min + (hr_max - hr_min) * (1.0 - torch.exp(-a - b * intensity))).squeeze(-1)
+
     def forecast_single_workout(self, workout):
         """
         Forecast heart rate for a single workout.
@@ -227,8 +251,22 @@ class DBNModel(nn.Module):
                 pad_size = self.seq_length - combined_features.size(1)
                 combined_features = torch.cat([combined_features, torch.zeros(combined_features.size(0), pad_size, combined_features.size(2)).to(combined_features.device)], dim=1)
 
-        combined_features = combined_features.view(combined_features.size(0), self.seq_length, -1)  # Ensure correct shape after AdaFSSoft
+        combined_features = combined_features.view(combined_features.size(0), self.seq_length, -1)
+
+        if self.config.use_adafs:
+            combined_features = self.adafs_soft(combined_features)
 
         state_predictions = self.transition_model(combined_features)
+
+        if self.config.use_physiological_head:
+            # Re-slice the inputs the head needs to the same length as the state.
+            emb = embeddings[:, : self.seq_length, :]
+            act = activity[:, : self.seq_length, :]
+            if emb.size(1) < self.seq_length:
+                emb = torch.cat([emb, torch.zeros(emb.size(0), self.seq_length - emb.size(1), emb.size(2), device=emb.device)], dim=1)
+            if act.size(1) < self.seq_length:
+                act = torch.cat([act, torch.zeros(act.size(0), self.seq_length - act.size(1), act.size(2), device=act.device)], dim=1)
+            return self.physiological_head(emb, state_predictions, act)
+
         predictions = self.emission_model(state_predictions)
         return predictions.view(predictions.size(0), -1)

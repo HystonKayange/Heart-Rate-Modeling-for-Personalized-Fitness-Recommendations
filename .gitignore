@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Windows "downloaded from the internet" marker streams
+*:Zone.Identifier
+
+# Data is access-restricted (FitRec); see the paper's Data Availability Statement
+output/
+*.feather
