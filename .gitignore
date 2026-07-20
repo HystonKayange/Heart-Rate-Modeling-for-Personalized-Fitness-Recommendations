@@ -8,3 +8,4 @@ __pycache__/
 # Data is access-restricted (FitRec); see the paper's Data Availability Statement
 output/
 *.feather
+*.zip

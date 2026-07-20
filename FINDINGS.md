@@ -82,6 +82,8 @@ fall.
 
 | Paper | Code |
 |---|---|
+| §3.1: "we filtered the dataset to include only running workout sessions"; Table 2 captioned "on running sport" | `preprocess.py:112` sets `target_activities = ["bike", "run"]`. In `endomondoHR_proper.json` that is 71,915 bike and 70,591 run workouts — cycling is the larger share. Table 2's statistics therefore describe a mixed cycling/running set. |
+| Table 2: "Average workout speed 3.7 km/h" | Impossible under the code's own 5-40 km/h filter (`preprocess.py:172`). 3.7 m/s = 13.3 km/h is consistent with a mixed-sport set, so the unit label appears to be wrong. |
 | §5.1: "workouts from the same user were not split across subsets" | `preprocess.py:184-187` splits each user's workouts chronologically 80/20, so every user appears in both. (The code's approach is appropriate for personalization; the description is inverted.) |
 | §3.2.1, §5.1: duration filter 10 min - 2 h 20 min | 15 min - 2 h (`preprocess.py:129`) |
 | §5.1: 665 users | `subject_embeddings` is (558, 8) |
@@ -124,8 +126,19 @@ Branch `reeval-clean-split`:
   configuration — the check that would have caught findings 1 and 2.
 
 Two numbers are needed, both on a clean held-out split: the as-published
-architecture, and the as-described architecture. Neither is available yet; the
-FitRec data is not in the repository and is being re-downloaded.
+architecture, and the as-described architecture.
+
+**Data provenance.** `endomondoHR_proper.json` was obtained from a Kaggle mirror
+after the UCSD Google Drive link returned 404 and `deepyeti.ucsd.edu` stopped
+responding. The mirror is byte-identical to the UCSD original: 4,929,126,138
+bytes, matching the `Content-Length` served by
+`mcauleylab.ucsd.edu/public_datasets/gdrive/fitrec/`. Schema verified as raw BPM
+heart rate with no `tar_heart_rate` field.
+
+Contents measured directly: 167,783 workouts / 1,059 users, against the 167,373 /
+956 stated on the FitRec project page. Since the file is byte-identical to the
+official artifact, the page's figures appear to be post-filtering counts rather
+than a difference in the data.
 
 `main` is unchanged and remains an accurate record of what produced the published
 results. `best_model.pt` should be retained — it is the evidence for findings 1
