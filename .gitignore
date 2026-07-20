@@ -9,3 +9,4 @@ __pycache__/
 output/
 *.feather
 *.zip
+reeval/
