@@ -80,25 +80,29 @@ Details and evidence: [`FINDINGS.md`](../../FINDINGS.md).
 
 **Location:** `examples/figures/public/`
 
-These figures support the reevaluation package. They are ready for upload with the repository.
+Captions: [`FIGURES.md`](examples/figures/public/FIGURES.md).
+
+### 3.1 True vs predicted heart rate (held-out)
+
+Stitched full-session predictions on held-out run workouts. Model: paper-faithful stack under the standard protocol. The band is ±5 BPM for display only.
+
+![True vs predicted heart rate on held-out workouts](examples/figures/public/02_workout_predictions.png)
+
+### 3.2 Error summary (held-out sample)
+
+Left: predicted mean HR vs true mean HR. Right: distribution of per-workout MAE.
+
+![Error scatter and MAE distribution on held-out sample](examples/figures/public/03_error_scatter.png)
+
+### 3.3 Other figure files
 
 | File | Content |
 |------|---------|
-| [`01_mae_comparison.png`](examples/figures/public/01_mae_comparison.png) | Published MAE (5.2 BPM) vs standard-protocol MAE |
-| [`02_workout_predictions.png`](examples/figures/public/02_workout_predictions.png) | True and predicted HR on held-out run workouts (stitched full session) |
-| [`03_error_scatter.png`](examples/figures/public/03_error_scatter.png) | Mean HR scatter and per-workout MAE distribution (held-out sample) |
-| [`FIGURES.md`](examples/figures/public/FIGURES.md) | Captions and notes |
+| [`01_mae_comparison.png`](examples/figures/public/01_mae_comparison.png) | Bar chart: published 5.2 BPM vs reevaluation MAE (optional; not shown above) |
+| [`02_workout_predictions.png`](examples/figures/public/02_workout_predictions.png) | Figure in Section 3.1 |
+| [`03_error_scatter.png`](examples/figures/public/03_error_scatter.png) | Figure in Section 3.2 |
 
-**How to open the figures on this machine:**
-
-```bash
-cd ~/projects/xr-hr/"XR Twin _Heart-Rate-Modeling-for-Personalized-Fitness"/Heart_Rate_Modeling/examples
-ls figures/public/
-# optional: open in a viewer
-xdg-open figures/public/01_mae_comparison.png
-```
-
-**How to rebuild the figures** (needs `reeval/paper-faithful-run-val/best_model.pt`):
+**Rebuild figures** (needs `reeval/paper-faithful-run-val/best_model.pt`):
 
 ```bash
 cd examples
@@ -110,8 +114,6 @@ python3 plot_public_figures.py \
   --seq-length 128 \
   --feature-set basic
 ```
-
-**Note:** Figure 1 compares different metric definitions on purpose. The left bar is the paper figure (notebook procedure). The other bars use held-out evaluation under the standard protocol. See Section 2.
 
 ---
 
