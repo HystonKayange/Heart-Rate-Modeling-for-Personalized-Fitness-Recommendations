@@ -5,7 +5,9 @@ Paper: Kayange, H.; Mun, J.; Park, Y.; Choi, J.; Choi, J. "A Hybrid Approach to
 Modeling Heart Rate Response for Personalized Fitness Recommendations Using
 Wearable Data." *Electronics* **2024**, *13*, 3888. https://doi.org/10.3390/electronics13193888
 
-Status: findings 1-4 verified. Finding 4's magnitude is pending a clean rerun.
+Status: findings 1-4 verified. Clean held-out reevaluation is underway in
+`Heart_Rate_Modeling/examples/reeval/` (best clean open-loop ~7.37 BPM mean
+workout MAE under val selection; see package README and `ABLATION_TABLE.md`).
 
 ---
 

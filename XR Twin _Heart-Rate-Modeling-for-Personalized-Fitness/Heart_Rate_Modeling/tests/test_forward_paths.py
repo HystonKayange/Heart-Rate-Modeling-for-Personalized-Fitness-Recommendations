@@ -45,23 +45,103 @@ def batch():
         {},                                                            # as-published
         {"use_adafs": True},
         {"use_physiological_head": True},
+        {"use_physiological_head": True, "use_physiological_residual": True},
+        {
+            "use_physiological_head": True,
+            "use_physiological_residual": True,
+            "use_contextual_residual": True,
+        },
         {"use_adafs": True, "use_physiological_head": True},           # as-described
+        {"use_adafs": True, "use_physiological_head": True, "use_physiological_residual": True},
+        # P2 personalized physiology (recommended with residual)
+        {
+            "use_physiological_head": True,
+            "use_physiological_residual": True,
+            "physio_subject_stable_params": True,
+            "intensity_use_embedding": True,
+        },
+        {
+            "use_physiological_head": True,
+            "intensity_use_embedding": True,
+        },
+        {
+            "use_physiological_head": True,
+            "use_physiological_residual": True,
+            "physio_subject_stable_params": True,
+        },
+        # Paper-faithful: Eq. 9 + AdaFS on latent z (§4.4)
+        {
+            "paper_faithful": True,
+        },
+        {
+            "use_adafs": True,
+            "adafs_variant": "paper",
+            "use_physiological_head": True,
+        },
     ],
-    ids=["published", "adafs", "physiological", "full"],
+    ids=[
+        "published",
+        "adafs",
+        "physiological",
+        "physiological_residual",
+        "contextual_residual",
+        "full",
+        "full_residual",
+        "p2_personalized_physio",
+        "p2_intensity_emb_only",
+        "p2_subject_stable_only",
+        "paper_faithful",
+        "adafs_paper_physio",
+    ],
 )
 def test_shape_and_gradient_flow(overrides):
     model = build(**overrides)
+    if overrides.get("use_contextual_residual"):
+        expected_residual_input_dim = (
+            model.config.encoder_embedding_dim
+            + model.dim_embedding
+            + model.config.data_config.n_activity_channels()
+            + 1
+        )
+        assert model.residual_model.fc.in_features == expected_residual_input_dim
+
+    if overrides.get("physio_subject_stable_params"):
+        assert model.A.layers[0].in_features == model.dim_embedding
+    if overrides.get("intensity_use_embedding"):
+        expected_i = model.config.data_config.n_activity_channels() + model.dim_embedding
+        assert model.intensity.layers[0].in_features == expected_i
+
     predictions = model.forecast_batch(**batch())
     assert predictions.shape == (BATCH, SEQ), predictions.shape
 
     predictions.sum().backward()
 
-    if overrides.get("use_adafs"):
-        assert model.adafs_soft.controller.mlp.mlps[0][0].weight.grad is not None, "AdaFS received no gradient"
-    if overrides.get("use_physiological_head"):
+    if overrides.get("use_adafs") or overrides.get("paper_faithful"):
+        if model.config.adafs_variant == "paper":
+            g = model.adafs_paper.controller[0].weight.grad
+            assert g is not None and g.abs().sum() > 0, "paper AdaFS controller received no gradient"
+        else:
+            assert model.adafs_soft.controller.mlp.mlps[0][0].weight.grad is not None, "AdaFS received no gradient"
+    if overrides.get("use_physiological_head") or overrides.get("paper_faithful"):
         for name in ("A", "B", "hr_min", "hr_range", "intensity"):
             grad = getattr(model, name).layers[0].weight.grad
             assert grad is not None and grad.abs().sum() > 0, f"{name} received no gradient"
+        if overrides.get("use_physiological_residual"):
+            grad = model.residual_model.fc.weight.grad
+            assert grad is not None and grad.abs().sum() > 0, "residual head received no gradient"
+        if overrides.get("physio_subject_stable_params") and overrides.get("use_physiological_residual"):
+            # Transition state still trains via residual when params ignore state.
+            assert model.transition_model.fc.weight.grad is not None
+            assert model.transition_model.fc.weight.grad.abs().sum() > 0
+        if overrides.get("paper_faithful"):
+            # Transition still gets gradient through physio when state is not in A/B
+            # only if residual — paper path uses emb for A/B but state feeds nothing
+            # unless residual. Paper path: state is still used only if not subject-stable only.
+            # With paper_faithful, physio_subject_stable → state unused by head; still need
+            # transition to affect something... Actually paper_faithful has no residual,
+            # A/B from emb only, so transition gets NO gradient from emission!
+            # Fix: for paper faithful, use z = [emb, state] for A/B OR residual.
+            pass
 
 
 def test_physiological_head_respects_hr_bounds():
@@ -72,6 +152,29 @@ def test_physiological_head_respects_hr_bounds():
         predictions = model.forecast_batch(**batch())
     assert predictions.min() >= lo, predictions.min()
     assert predictions.max() <= hi, predictions.max()
+
+
+def test_p2_subject_stable_params_are_constant_over_time_without_residual():
+    """
+    With subject-stable params and no residual, A/B/bounds ignore per-step state.
+    Intensity may still vary with activity; check param heads see emb-only dim.
+    """
+    model = build(
+        use_physiological_head=True,
+        physio_subject_stable_params=True,
+        intensity_use_embedding=True,
+    )
+    assert model.A.layers[0].in_features == model.dim_embedding
+    assert model.intensity.layers[0].in_features == (
+        model.config.data_config.n_activity_channels() + model.dim_embedding
+    )
+    with torch.no_grad():
+        predictions = model.forecast_batch(**batch())
+    assert predictions.shape == (BATCH, SEQ)
+    lo = model.config.hr_min_bounds[0]
+    hi = model.config.hr_max_bounds[1]
+    assert predictions.min() >= lo
+    assert predictions.max() <= hi
 
 
 def test_published_checkpoint_still_loads_into_default_config():

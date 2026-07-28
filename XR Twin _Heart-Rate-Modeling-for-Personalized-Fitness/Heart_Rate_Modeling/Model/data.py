@@ -205,10 +205,12 @@ class WorkoutDataset(torch.utils.data.Dataset):
             }
 
             if self.chunk_size is not None:
+                if times.shape[0] < self.chunk_size:
+                    continue
                 indices = list(range(0, times.shape[0] - self.chunk_size, self.stride))
-                if (
-                    indices[-1] + self.chunk_size < times.shape[0]
-                ):  # we include the workout end
+                if not indices:
+                    indices = [0]
+                elif indices[-1] + self.chunk_size < times.shape[0]:  # we include the workout end
                     indices.append(times.shape[0] - self.chunk_size)
                 indices = torch.LongTensor(indices)
                 for j in indices:

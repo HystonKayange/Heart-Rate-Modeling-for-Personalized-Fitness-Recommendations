@@ -2,7 +2,16 @@ import torch
 import torch.nn as nn
 
 class DenseNN(nn.Module):
-    def __init__(self, *dim_layers, activation=nn.ReLU(), output_activation=None, dim_context=0, bias=True, output_bounds=None):
+    def __init__(
+        self,
+        *dim_layers,
+        activation=nn.ReLU(),
+        output_activation=None,
+        dim_context=0,
+        bias=True,
+        output_bounds=None,
+        activate_output=True,
+    ):
         super(DenseNN, self).__init__()
         self.dim_layers = list(dim_layers)
         self.dim_context = dim_context
@@ -10,9 +19,11 @@ class DenseNN(nn.Module):
         if dim_context:
             self.dim_layers[0] += dim_context
         layers = []
-        for l, r in zip(self.dim_layers[:-1], self.dim_layers[1:]):
+        last_layer = len(self.dim_layers) - 2
+        for i, (l, r) in enumerate(zip(self.dim_layers[:-1], self.dim_layers[1:])):
             layers.append(nn.Linear(l, r, bias))
-            layers.append(activation)
+            if activate_output or i < last_layer:
+                layers.append(activation)
         self.layers = nn.ModuleList(layers)
         self.output_activation = output_activation if output_activation else nn.Identity()
         self.output_bounds = output_bounds
