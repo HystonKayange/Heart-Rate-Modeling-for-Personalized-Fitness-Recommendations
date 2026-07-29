@@ -17,6 +17,7 @@ OUT = REEVAL / "ABLATION_TABLE.md"
 
 # Preferred order for the clean matrix
 CLEAN_ORDER = [
+    "run-huber-128-delta12-intensity-trainprior-val",
     "ablation-linear-val",
     "ablation-physio-val",
     "ablation-physio-residual-val",
@@ -81,6 +82,7 @@ def row_from(d: dict) -> dict:
         "residual": d.get("residual"),
         "adafs": d.get("adafs"),
         "feature_set": d.get("feature_set"),
+        "history_source": d.get("history_source"),
         "mean_bias": d.get("mean_bias_weight", 0),
         "p2": d.get("physio_subject_stable") or d.get("intensity_embedding"),
         "horizon_mae": d.get("MAE"),
@@ -125,7 +127,7 @@ def main():
     lines.append("## Protocol (clean rows)")
     lines.append("")
     lines.append("- Sport: **run**")
-    lines.append("- History: **all-prior** (chronological)")
+    lines.append("- History: clean rows may use **train-prior** or **all-prior**; see the History column")
     lines.append("- Checkpointing: **validation only** (`val_fraction` from `in_train`)")
     lines.append("- Held-out: `~in_train` run workouts only for final metrics")
     lines.append("- Primary metric: **stitched full-workout mean MAE (BPM)**")
@@ -137,36 +139,50 @@ def main():
     lines.append("|--------|--------|------:|-------|")
     lines.append("| Published paper | MAE | 5.2 | Original notebook procedure; not clean held-out full-workout |")
     lines.append("| Published paper | RMSE | 8.1 | Same |")
-    best = by_name.get("run-huber-128-delta12-intensity-val") or by_name.get(
+    strict = by_name.get("run-huber-128-delta12-intensity-trainprior-val")
+    sequential = by_name.get("run-huber-128-delta12-intensity-val") or by_name.get(
         "ablation-physio-residual-intensity-val"
     )
-    if best and is_clean_val(best):
+    if strict and is_clean_val(strict):
         lines.append(
-            f"| **Best clean open-loop** (`{best['name']}`) | mean workout MAE | "
-            f"**{fmt(best.get('full_mean_workout_MAE'), 2)}** | val-selected, full-workout |"
+            f"| **Strict train-prior open-loop** (`{strict['name']}`) | mean workout MAE | "
+            f"**{fmt(strict.get('full_mean_workout_MAE'), 2)}** | val-selected, full-workout; history from `train_fit` only |"
         )
         lines.append(
-            f"| | median workout MAE | {fmt(best.get('full_median_workout_MAE'), 2)} | |"
+            f"| | median workout MAE | {fmt(strict.get('full_median_workout_MAE'), 2)} | |"
         )
         lines.append(
-            f"| | pooled MAE / RMSE | {fmt(best.get('full_pooled_MAE'), 2)} / "
-            f"{fmt(best.get('full_pooled_RMSE'), 2)} | |"
+            f"| | pooled MAE / RMSE | {fmt(strict.get('full_pooled_MAE'), 2)} / "
+            f"{fmt(strict.get('full_pooled_RMSE'), 2)} | |"
+        )
+    if sequential and is_clean_val(sequential):
+        lines.append(
+            f"| **Sequential-history open-loop** (`{sequential['name']}`) | mean workout MAE | "
+            f"**{fmt(sequential.get('full_mean_workout_MAE'), 2)}** | val-selected, full-workout; sequential all-prior history |"
+        )
+        lines.append(
+            f"| | median workout MAE | {fmt(sequential.get('full_median_workout_MAE'), 2)} | |"
+        )
+        lines.append(
+            f"| | pooled MAE / RMSE | {fmt(sequential.get('full_pooled_MAE'), 2)} / "
+            f"{fmt(sequential.get('full_pooled_RMSE'), 2)} | |"
         )
     lines.append("")
     lines.append("## Clean-protocol runs (comparable)")
     lines.append("")
     lines.append(
-        "| Run | Physio | Residual | AdaFS | Features | "
+        "| Run | History | Physio | Residual | AdaFS | Features | "
         "Full mean MAE | Full median | Pooled MAE | Val MAE | Horizon MAE |"
     )
     lines.append(
-        "|-----|:------:|:--------:|:-----:|----------|"
+        "|-----|---------|:------:|:--------:|:-----:|----------|"
         "--------------:|------------:|-----------:|--------:|------------:|"
     )
     for r in ordered_clean:
         row = row_from(r)
         lines.append(
-            f"| `{row['name']}` | {row['physio']} | {row['residual']} | {row['adafs']} | "
+            f"| `{row['name']}` | {row['history_source'] or '—'} | "
+            f"{row['physio']} | {row['residual']} | {row['adafs']} | "
             f"{row['feature_set'] or '—'} | "
             f"**{fmt(row['full_mean'], 2)}** | {fmt(row['full_median'], 2)} | "
             f"{fmt(row['full_pooled'], 2)} | {fmt(row['val_mae'], 2)} | {fmt(row['horizon_mae'], 2)} |"

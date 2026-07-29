@@ -25,17 +25,35 @@ class LSTMEncoder(nn.Module):
         # Optional: Batch normalization before the final output
         self.batch_norm = nn.BatchNorm1d(output_dim)
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         # If using learnable initial states, expand to match batch size
         batch_size = x.size(0)
         h0 = self.h0.unsqueeze(1).repeat(1, batch_size, 1)
         c0 = self.c0.unsqueeze(1).repeat(1, batch_size, 1)
         
-        # Passing the input through the LSTM layers
-        out, _ = self.lstm(x, (h0, c0))
-        
-        # Applying dropout to the output of the LSTM's last time step
-        out = self.dropout(out[:, -1, :])
+        if lengths is None:
+            # Passing the input through the LSTM layers
+            out, _ = self.lstm(x, (h0, c0))
+            last_out = out[:, -1, :]
+        else:
+            lengths = lengths.to(device=x.device).long().clamp(min=1, max=x.size(1))
+            packed = nn.utils.rnn.pack_padded_sequence(
+                x,
+                lengths.cpu(),
+                batch_first=True,
+                enforce_sorted=False,
+            )
+            packed_out, _ = self.lstm(packed, (h0, c0))
+            out, _ = nn.utils.rnn.pad_packed_sequence(
+                packed_out,
+                batch_first=True,
+                total_length=x.size(1),
+            )
+            batch_index = torch.arange(batch_size, device=x.device)
+            last_out = out[batch_index, lengths - 1, :]
+
+        # Applying dropout to the output of the LSTM's last valid time step.
+        out = self.dropout(last_out)
         
         # Passing through the fully connected layer
         out = self.fc(out)

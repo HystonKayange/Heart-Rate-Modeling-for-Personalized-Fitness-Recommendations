@@ -49,8 +49,31 @@ Outputs: `examples/reeval_ode/<name>/best_model.pt` and `result.txt`.
 - Checkpoint on **val MAE**
 - Full-workout MAE (ODE integrates full sequences when `chunk_size=None`)
 
-Compare to DBN clean best: **~7.37 BPM** mean workout MAE  
-(`Heart_Rate_Modeling/examples/reeval/run-huber-128-delta12-intensity-val`).
+## Completed clean FitRec result
+
+Run directory: `examples/reeval_ode/ode-run-clean-val/`
+
+| Metric | Value |
+|--------|------:|
+| Validation MAE | 7.75 BPM |
+| Mean workout MAE | 8.79 BPM |
+| Median workout MAE | 7.12 BPM |
+| Pooled MAE | 8.61 BPM |
+| Pooled RMSE | 12.37 BPM |
+| Held-out run workouts | 6,396 |
+| Full-workout time steps | 2,191,034 |
+
+Clean same-dataset comparison:
+
+| Model | Mean workout MAE | Pooled MAE | Pooled RMSE |
+|-------|-----------------:|-----------:|------------:|
+| DBN strict train-prior | 8.12 BPM | 8.04 BPM | 11.19 BPM |
+| Hybrid ODE FitRec baseline | 8.79 BPM | 8.61 BPM | 12.37 BPM |
+
+Under this clean FitRec held-out full-workout protocol, the DBN model
+outperforms the rerun Hybrid ODE baseline. This comparison is separate from
+the paper Table 3 values, where the ODE 6.1 BPM number comes from the cited
+Apple/Nazaret study.
 
 ## Alternative: build feather with Apple preprocess
 

@@ -30,7 +30,7 @@ from torch.utils.data import DataLoader, Subset
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..")))
 
 from Model.data import WorkoutDataset, WorkoutDatasetConfig, workout_dataset_collate_fn
-from Model.dbn import DBNConfig, DBNModel
+from Model.dbn import DBNConfig, DBNModel, load_compatible_state_dict
 from Model.trainer import Trainer
 from Model.activity_features import add_activity_features, chronological_train_val_masks
 
@@ -47,8 +47,8 @@ p.add_argument(
     "--paper-faithful",
     action="store_true",
     help=(
-        "Faithful paper stack: Eq. 9 physiological head + paper AdaFS (§4.4 on latent z) "
-        "+ A/B/HRbounds from subject/history embedding. Residual off unless --residual."
+        "Paper-text stack: Eq. 9 physiological head + paper AdaFS (§4.4 on latent z). "
+        "Residual off unless --residual."
     ),
 )
 p.add_argument("--physiological", action="store_true", help="enable the Eq. 9 head")
@@ -82,9 +82,12 @@ p.add_argument("--eval-stride", type=int, default=32, help="stride for stitched 
 p.add_argument("--sport", default=None, help="optional sport filter, e.g. run or bike")
 p.add_argument(
     "--history-source",
-    choices=["split", "all-prior"],
-    default="split",
-    help="build held-out history from held-out rows only, or from all chronological prior workouts",
+    choices=["split", "train-prior", "all-prior"],
+    default="train-prior",
+    help=(
+        "split=held-out rows only; train-prior=train_fit rows only; "
+        "all-prior=all chronological prior rows, including earlier val/held-out rows"
+    ),
 )
 p.add_argument(
     "--val-fraction",
@@ -176,6 +179,8 @@ df, activity_columns = add_activity_features(
     time_column="start_dt",
     sport=args.sport,
 )
+history_allowed_column = "_history_allowed_train_fit"
+df[history_allowed_column] = train_fit_mask
 
 print(
     f"train_fit {train_fit_mask.sum():,}  |  val {val_mask.sum():,}  |  held-out {heldout_mask.sum():,}"
@@ -210,6 +215,10 @@ data_config_train = WorkoutDatasetConfig(
     stride=args.train_stride,
 )
 data_config_eval = dataclasses.replace(data_config_train, chunk_size=None, stride=None)
+data_config_train_prior_eval = dataclasses.replace(
+    data_config_eval,
+    history_allowed_column=history_allowed_column,
+)
 
 train_dataset = WorkoutDataset(df[train_fit_mask], data_config_train)
 train_dataloader = DataLoader(
@@ -220,9 +229,9 @@ train_dataloader = DataLoader(
     drop_last=True,
 )
 
-# Validation: full workouts from val split; history from chronological priors in in_train.
+# Validation: full workouts from val split; history from train_fit priors only.
 if val_mask.any():
-    val_pool = WorkoutDataset(df[in_train_mask], data_config_eval)
+    val_pool = WorkoutDataset(df[in_train_mask], data_config_train_prior_eval)
     in_train_positions = np.flatnonzero(in_train_mask.to_numpy())
     # Map full-df row positions that are val into positions within the in_train pool.
     val_global = set(np.flatnonzero(val_mask.to_numpy()).tolist())
@@ -242,6 +251,13 @@ val_dataloader = DataLoader(
 # Held-out test: used only for final reporting, never for checkpoint selection.
 if args.history_source == "split":
     test_dataset = WorkoutDataset(df[heldout_mask], data_config_eval)
+elif args.history_source == "train-prior":
+    eval_pool_mask = train_fit_mask | heldout_mask
+    eval_pool = WorkoutDataset(df[eval_pool_mask], data_config_train_prior_eval)
+    eval_pool_positions = np.flatnonzero(eval_pool_mask.to_numpy())
+    heldout_global = set(np.flatnonzero(heldout_mask.to_numpy()).tolist())
+    heldout_local = [i for i, g in enumerate(eval_pool_positions) if g in heldout_global]
+    test_dataset = Subset(eval_pool, heldout_local)
 else:
     full_eval_dataset = WorkoutDataset(df, data_config_eval)
     heldout_indices = np.flatnonzero(heldout_mask.to_numpy()).tolist()
@@ -428,7 +444,7 @@ def full_workout_metrics(model, dataloader, device, seq_length, stride):
     }
 
 
-model.load_state_dict(torch.load(checkpoint_path, map_location=config.device))
+load_compatible_state_dict(model, torch.load(checkpoint_path, map_location=config.device))
 # Final reporting: held-out only. Optionally also log val for transparency.
 val_metrics = final_metrics(model, val_dataloader, config.device) if val_mask.any() else None
 metrics = final_metrics(model, test_dataloader, config.device)

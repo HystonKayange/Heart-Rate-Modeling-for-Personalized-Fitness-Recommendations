@@ -13,15 +13,20 @@ Kayange et al., *Electronics* **2024**, 13, 3888.
 | [`../baselines/ml-heart-rate-models-main/FITREC_CLEAN.md`](../baselines/ml-heart-rate-models-main/FITREC_CLEAN.md) | Hybrid ODE baseline on FitRec |
 | [`Heart_Rate_Modeling/examples/figures/public/`](Heart_Rate_Modeling/examples/figures/public/) | Public figures for reevaluation |
 
-## Results (summary)
+## Results (Protocol-Specific Summary)
 
-| Source | MAE |
-|--------|-----|
-| Published paper | 5.2 BPM (notebook procedure; see package README) |
-| Best open-loop under standard protocol | 7.37 BPM mean workout MAE |
-| Paper-faithful stack under standard protocol | 7.42 BPM mean workout MAE |
+| Source | Result |
+|--------|--------|
+| Published paper | 5.2 BPM MAE (notebook procedure; see package README) |
+| Strict train-prior DBN protocol | 8.12 BPM mean workout MAE |
+| Sequential-history DBN protocol | 7.37 BPM mean workout MAE |
+| Paper-faithful DBN stack under sequential-history protocol | 7.42 BPM mean workout MAE |
+| Hybrid ODE baseline rerun on FitRec | 8.79 BPM mean workout MAE |
 
-Do not compare these numbers without the protocol notes in `Heart_Rate_Modeling/README.md`.
+The clean FitRec held-out full-workout comparison is DBN 8.12 BPM vs Hybrid
+ODE 8.79 BPM mean workout MAE. Do not compare the published 5.2 BPM number
+with the clean reevaluation numbers without the protocol notes in
+`Heart_Rate_Modeling/README.md`.
 
 ## Figures
 
