@@ -13,8 +13,8 @@ Checkpoint selection and LR scheduling use validation only — never held-out.
         --feature-set run_intensity --seq-length 128 --loss huber \
         --huber-delta 12 --weight-decay 1e-4 --full-workout
 
-Checkpoints are written under examples/reeval/<name>/ so the published
-best_model.pt is never overwritten (it is the evidence for findings 1-2).
+Checkpoints are written under examples/reeval/<name>/ so the paper-period
+best_model.pt artifact is never overwritten.
 """
 import argparse
 import dataclasses

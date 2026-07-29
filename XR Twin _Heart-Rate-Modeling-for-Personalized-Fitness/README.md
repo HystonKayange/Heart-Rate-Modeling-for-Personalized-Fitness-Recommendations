@@ -9,7 +9,7 @@ Kayange et al., *Electronics* **2024**, 13, 3888.
 | Document | Content |
 |----------|---------|
 | [`Heart_Rate_Modeling/README.md`](Heart_Rate_Modeling/README.md) | Install, train, evaluate, protocol, results |
-| [`../FINDINGS.md`](../FINDINGS.md) | Post-publication technical notes (repository root) |
+| [`../REPRODUCIBILITY.md`](../REPRODUCIBILITY.md) | Reproducibility notes and protocol definitions |
 | [`../baselines/ml-heart-rate-models-main/FITREC_CLEAN.md`](../baselines/ml-heart-rate-models-main/FITREC_CLEAN.md) | Hybrid ODE baseline on FitRec |
 | [`Heart_Rate_Modeling/examples/figures/public/`](Heart_Rate_Modeling/examples/figures/public/) | Public figures for reevaluation |
 

@@ -19,9 +19,9 @@ Read the package guide:
 
 [`Heart_Rate_Modeling/README.md`](XR%20Twin%20_Heart-Rate-Modeling-for-Personalized-Fitness/Heart_Rate_Modeling/README.md)
 
-Post-publication technical notes:
+Reproducibility notes:
 
-[`FINDINGS.md`](FINDINGS.md)
+[`REPRODUCIBILITY.md`](REPRODUCIBILITY.md)
 
 ODE baseline on FitRec:
 
@@ -35,16 +35,16 @@ Public figures:
 
 ## 2. Reproducibility Position
 
-This repository keeps the original paper-period artifacts and adds stricter
-post-publication reevaluation scripts. The published result and the clean
-reevaluation results should be cited with their protocol.
+This repository preserves the paper-period artifacts and adds reproducible
+evaluation scripts. Published and reevaluated results should be cited with the
+protocol that produced them.
 
 | Item | Published paper | Clean reevaluation in this repository |
 |------|-----------------|----------------------------------------|
 | DBN headline MAE | 5.2 BPM | 8.12 BPM strict train-prior; 7.37 BPM sequential-history |
 | Evaluation | Notebook procedure from the paper period | Held-out reporting; validation checkpoints; full workout |
 | ODE comparison | Hybrid ODE 6.1 BPM from the cited Apple/Nazaret study | Hybrid ODE on FitRec: 8.79 BPM mean workout MAE |
-| Model path in the text | Hybrid model (AdaFS + Equation 9) | Original checkpoint: linear emission; paper-style components available as explicit flags |
+| Model path in the text | Hybrid model (AdaFS + Equation 9) | Released-checkpoint compatibility path; paper-style components available as explicit flags |
 
 The notebook recorded about 5.07 BPM MAE, which the paper reports as 5.2 BPM.
 That figure is a real notebook output, but it is **not** the same metric as the
@@ -58,7 +58,7 @@ remains better than the rerun Hybrid ODE baseline:
 | DBN strict train-prior | 8.12 BPM | 8.04 BPM | 11.19 BPM |
 | Hybrid ODE FitRec baseline | 8.79 BPM | 8.61 BPM | 12.37 BPM |
 
-See the package README and `FINDINGS.md` for full detail.
+See the package README and `REPRODUCIBILITY.md` for full detail.
 
 ---
 
