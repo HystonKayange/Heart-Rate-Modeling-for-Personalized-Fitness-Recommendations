@@ -10,7 +10,7 @@ Kayange, H.; Mun, J.; Park, Y.; Choi, J.; Choi, J.
 *Electronics* **2024**, *13*, 3888.  
 https://doi.org/10.3390/electronics13193888
 
-Post-publication technical notes: [`FINDINGS.md`](../../FINDINGS.md) (repository root).
+Reproducibility notes: [`REPRODUCIBILITY.md`](../../REPRODUCIBILITY.md) (repository root).
 
 ---
 
@@ -53,9 +53,9 @@ to produce them.
 | Test set | See notebook procedure in Section 2.3 | Held-out rows for final scoring (`~in_train`) |
 | Checkpoint selection | Same loader as the reported test path | Validation set only (`--val-fraction`) |
 | Prediction length | First training window (64 steps ≈ 10.7 min in the notebook) | Full workout (stitched) as primary metric |
-| Physiological head (Eq. 9) | Described as a main part | Optional; **not** active in the original trained path |
-| AdaFS | Described as a main part | Optional; **not** active in the original trained path |
-| Path in the released checkpoint | Hybrid description in the text | Transition LSTM → linear emission |
+| Physiological head (Eq. 9) | Described as a main part | Available through explicit reevaluation flags; released-checkpoint path remains compatible |
+| AdaFS | Described as a main part | Available through explicit reevaluation flags; released-checkpoint path remains compatible |
+| Path in the released checkpoint | Hybrid description in the text | Checkpoint-compatible path with optional paper-style variants |
 
 ### 2.3 Origin of the 5.2 BPM figure
 
@@ -80,7 +80,7 @@ to produce them.
 
 Do not treat 5.2 BPM as the target for these reevaluation protocols.
 
-Details and evidence: [`FINDINGS.md`](../../FINDINGS.md).
+Details and evidence: [`REPRODUCIBILITY.md`](../../REPRODUCIBILITY.md).
 
 ### 2.5 Clean same-dataset comparison against Hybrid ODE
 
