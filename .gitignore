@@ -10,3 +10,7 @@ output/
 *.feather
 *.zip
 reeval/
+*.log
+
+# Generated ODE rerun checkpoints; keep lightweight result.txt summaries.
+baselines/ml-heart-rate-models-main/examples/reeval_ode/**/best_model.pt

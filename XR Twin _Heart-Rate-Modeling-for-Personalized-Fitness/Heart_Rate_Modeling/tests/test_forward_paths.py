@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from Model.data import WorkoutDatasetConfig
 from Model.dbn import DBNConfig, DBNModel
+from Model.modules_lstm import LSTMEncoder
 
 BATCH, SEQ, N_SUBJECTS, HISTORY = 4, 64, 6, 128
 
@@ -175,6 +176,21 @@ def test_p2_subject_stable_params_are_constant_over_time_without_residual():
     hi = model.config.hr_max_bounds[1]
     assert predictions.min() >= lo
     assert predictions.max() <= hi
+
+
+def test_history_encoder_ignores_padded_timesteps():
+    encoder = LSTMEncoder(input_dim=5, hidden_dim=8, n_layers=1, output_dim=4, dropout=0.0)
+    encoder.eval()
+    history = torch.zeros(2, 6, 5)
+    history[:, :3, :] = torch.randn(1, 3, 5).expand(2, -1, -1)
+    history[0, 3:, :] = 100.0
+    history[1, 3:, :] = -100.0
+    lengths = torch.tensor([3, 3])
+
+    with torch.no_grad():
+        encoded = encoder(history, lengths)
+
+    assert torch.allclose(encoded[0], encoded[1], atol=1e-5)
 
 
 def test_published_checkpoint_still_loads_into_default_config():

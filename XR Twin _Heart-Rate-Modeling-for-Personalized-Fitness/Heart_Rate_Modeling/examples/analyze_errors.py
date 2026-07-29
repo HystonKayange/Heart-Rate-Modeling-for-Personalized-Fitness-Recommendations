@@ -24,8 +24,8 @@ PROJECT_DIR = EXAMPLES_DIR.parent
 sys.path.append(str(PROJECT_DIR))
 
 from Model.data import WorkoutDataset, WorkoutDatasetConfig, workout_dataset_collate_fn
-from Model.dbn import DBNConfig, DBNModel
-from Model.activity_features import add_activity_features
+from Model.dbn import DBNConfig, DBNModel, load_compatible_state_dict
+from Model.activity_features import add_activity_features, chronological_train_val_masks
 
 
 def parse_args():
@@ -56,10 +56,14 @@ def parse_args():
     p.add_argument("--limit", type=int, default=None, help="debug only: score first N held-out workouts")
     p.add_argument(
         "--history-source",
-        choices=["split", "all-prior"],
-        default="all-prior",
-        help="build held-out history from held-out rows only, or from all chronological prior workouts",
+        choices=["split", "train-prior", "all-prior"],
+        default=None,
+        help=(
+            "split=held-out rows only; train-prior=train_fit rows only; "
+            "all-prior=all chronological prior rows, including earlier val/held-out rows"
+        ),
     )
+    p.add_argument("--val-fraction", type=float, default=None, help="inferred from result.txt when omitted")
     p.add_argument("--outdir", default=None)
     args = p.parse_args()
     if args.personalized_physio:
@@ -87,7 +91,7 @@ def make_data_config(activity_columns):
     )
 
 
-def make_heldout_dataloader(df, data_config, batch_size, history_source, limit, sport):
+def make_heldout_dataloader(df, data_config, batch_size, history_source, limit, sport, train_fit_mask):
     eval_config = dataclasses.replace(data_config, chunk_size=None, stride=None)
     heldout_mask = ~df["in_train"]
     if sport is not None:
@@ -96,6 +100,19 @@ def make_heldout_dataloader(df, data_config, batch_size, history_source, limit, 
         dataset = WorkoutDataset(df[heldout_mask], eval_config)
         if limit is not None:
             dataset = Subset(dataset, list(range(min(limit, len(dataset)))))
+    elif history_source == "train-prior":
+        history_allowed_column = "_history_allowed_train_fit"
+        df = df.copy()
+        df[history_allowed_column] = train_fit_mask
+        strict_config = dataclasses.replace(eval_config, history_allowed_column=history_allowed_column)
+        eval_pool_mask = train_fit_mask | heldout_mask
+        eval_pool = WorkoutDataset(df[eval_pool_mask], strict_config)
+        eval_pool_positions = np.flatnonzero(eval_pool_mask.to_numpy())
+        heldout_global = set(np.flatnonzero(heldout_mask.to_numpy()).tolist())
+        heldout_local = [i for i, g in enumerate(eval_pool_positions) if g in heldout_global]
+        if limit is not None:
+            heldout_local = heldout_local[:limit]
+        dataset = Subset(eval_pool, heldout_local)
     else:
         full_dataset = WorkoutDataset(df, eval_config)
         heldout_indices = np.flatnonzero(heldout_mask.to_numpy()).tolist()
@@ -372,6 +389,16 @@ def infer_bool(result_path, key, default=False):
     return default
 
 
+def infer_value(result_path, key, default=None):
+    if not result_path.exists():
+        return default
+    prefix = f"{key}="
+    for token in result_path.read_text().split():
+        if token.startswith(prefix):
+            return token.split("=", 1)[1]
+    return default
+
+
 def main():
     args = parse_args()
     run_dir = EXAMPLES_DIR / "reeval" / args.name
@@ -380,6 +407,10 @@ def main():
         args.seq_length = infer_seq_length(run_dir / "result.txt")
     if args.feature_set is None:
         args.feature_set = infer_feature_set(run_dir / "result.txt")
+    if args.history_source is None:
+        args.history_source = infer_value(run_dir / "result.txt", "history_source", "all-prior")
+    if args.val_fraction is None:
+        args.val_fraction = float(infer_value(run_dir / "result.txt", "val_fraction", 0.15))
     if not args.contextual_residual:
         args.contextual_residual = infer_bool(run_dir / "result.txt", "contextual_residual")
     if not args.physio_subject_stable:
@@ -393,24 +424,37 @@ def main():
     outdir.mkdir(parents=True, exist_ok=True)
 
     df = pd.read_feather(args.data)
-    # Cold-start population stats from train only — never held-out labels.
-    train_population = df["in_train"]
+    in_train_mask = df["in_train"]
     if args.sport is not None:
-        train_population = train_population & df["sport"].eq(args.sport)
+        in_train_mask = in_train_mask & df["sport"].eq(args.sport)
+    train_fit_mask, _ = chronological_train_val_masks(
+        df,
+        in_train_mask,
+        subject_id_column="userId",
+        time_column="start_dt",
+        val_fraction=args.val_fraction,
+    )
+    # Cold-start population stats from train only — never held-out labels.
     df, activity_columns = add_activity_features(
         df,
         args.feature_set,
-        population_mask=train_population,
+        population_mask=train_fit_mask if train_fit_mask.any() else in_train_mask,
         subject_id_column="userId",
         time_column="start_dt",
         sport=args.sport,
     )
     data_config = make_data_config(activity_columns)
     dataloader = make_heldout_dataloader(
-        df, data_config, args.batch_size, args.history_source, args.limit, args.sport
+        df,
+        data_config,
+        args.batch_size,
+        args.history_source,
+        args.limit,
+        args.sport,
+        train_fit_mask,
     )
     model = build_model(df, data_config, args)
-    model.load_state_dict(torch.load(checkpoint, map_location=model.config.device))
+    load_compatible_state_dict(model, torch.load(checkpoint, map_location=model.config.device))
 
     headline, per_workout, cohort_summary, segment_summary = analyze(model, dataloader, df, args)
 
@@ -423,6 +467,7 @@ def main():
         f.write(f"name={args.name}\n")
         f.write(f"checkpoint={checkpoint}\n")
         f.write(f"history_source={args.history_source}\n")
+        f.write(f"val_fraction={args.val_fraction}\n")
         f.write(f"sport={args.sport or 'all'}\n")
         f.write(f"seq_length={args.seq_length}\n")
         f.write(f"feature_set={args.feature_set}\n")

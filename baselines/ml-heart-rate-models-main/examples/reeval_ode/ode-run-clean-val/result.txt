@@ -1,0 +1,14 @@
+ode-run-clean-val
+model=hybrid_ode baseline=nazaret2023
+data=/home/cyai/projects/xr-hr/XR Twin _Heart-Rate-Modeling-for-Personalized-Fitness/Heart_Rate_Modeling/output/endomondo_filtered.feather
+sport=run history_source=all-prior val_fraction=0.15 epochs=50
+train_fit_n=20953 val_n=3698 heldout_n=6396
+seq_length=64 train_stride=32 ode_step_size=1.0
+val_MAE=7.7495
+full_mean_workout_MAE=8.7876
+full_median_workout_MAE=7.1192
+full_pooled_MAE=8.6089
+full_mean_workout_RMSE=10.9976
+full_pooled_RMSE=12.3677
+full_n_workouts=6396
+full_n_steps=2191034

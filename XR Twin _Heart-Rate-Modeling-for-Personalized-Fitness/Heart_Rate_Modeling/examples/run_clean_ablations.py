@@ -4,7 +4,7 @@ Run a fixed clean-protocol ablation matrix via run_reeval.py.
 
 All runs share:
   - sport=run
-  - history_source=all-prior
+  - history_source=all-prior (sequential personalization)
   - val_fraction=0.15 (checkpoint on val only)
   - seq_length=128, train_stride=64
   - loss=huber, huber_delta=12, weight_decay=1e-4

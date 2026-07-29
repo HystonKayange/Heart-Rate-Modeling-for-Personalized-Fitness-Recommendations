@@ -58,6 +58,7 @@ class WorkoutDatasetConfig:
     heart_rate_normalized_column: str = "heart_rate_normalized"
     activity_columns: List[str] = list
     weather_columns: List[str] = list
+    history_allowed_column: Optional[str] = None
 
     history_max_length: Optional[int] = None
     chunk_size: Optional[int] = 64
@@ -281,7 +282,12 @@ class WorkoutDataset(torch.utils.data.Dataset):
                 date,
                 workouts_per_subject[subject_id].copy(),
             )
-            workouts_per_subject[subject_id].append((date, workout_id))
+            history_allowed = (
+                self.dataset_config.history_allowed_column is None
+                or bool(workout[self.dataset_config.history_allowed_column])
+            )
+            if history_allowed:
+                workouts_per_subject[subject_id].append((date, workout_id))
 
         def gather_workout_measurements(workout_all_data, workout_date, reference_date):
             # prepare a numpy array with all the measurements

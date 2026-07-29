@@ -221,7 +221,7 @@ class EmbeddingStore(nn.Module):
             subject_embeddings = self.subject_embeddings(torch.LongTensor(subject_indices).to(device))
             embeddings.append(subject_embeddings)
         if self.encoder is not None and history is not None:
-            encoded_embeddings = self.encoder(history)
+            encoded_embeddings = self.encoder(history, history_lengths)
             embeddings.append(encoded_embeddings)
         embeddings = torch.cat(embeddings, dim=-1)
         if embeddings.dim() == 2:
@@ -406,3 +406,36 @@ class DBNModel(nn.Module):
 
         predictions = self.emission_model(state_predictions)
         return predictions.view(predictions.size(0), -1)
+
+
+def load_compatible_state_dict(model, state_dict):
+    """
+    Load checkpoints across ablation-only module additions.
+
+    The model always instantiates optional heads/AdaFS variants so tests can
+    verify them, but older checkpoints legitimately lack inactive modules. Treat
+    inactive missing keys as compatible while still failing for live paths.
+    """
+    result = model.load_state_dict(state_dict, strict=False)
+
+    live_prefixes = ["embedding_store.", "transition_model."]
+    if model.config.use_physiological_head:
+        live_prefixes.extend(["A.", "B.", "hr_min.", "hr_range.", "intensity."])
+        if model.config.use_physiological_residual:
+            live_prefixes.append("residual_model.")
+    else:
+        live_prefixes.append("emission_model.")
+
+    if model.config.use_adafs:
+        if model.config.adafs_variant == "paper":
+            live_prefixes.append("adafs_paper.")
+        else:
+            live_prefixes.append("adafs_soft.")
+
+    missing_live = [
+        key for key in result.missing_keys
+        if any(key.startswith(prefix) for prefix in live_prefixes)
+    ]
+    if missing_live:
+        raise RuntimeError(f"Live checkpoint parameters missing: {missing_live}")
+    return result

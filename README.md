@@ -33,17 +33,30 @@ Public figures:
 
 ---
 
-## 2. Published MAE and package MAE
+## 2. Reproducibility Position
 
-| Item | Published paper | Standard protocol in this repository |
-|------|-----------------|--------------------------------------|
-| MAE | 5.2 BPM | 7.37 BPM mean workout MAE (best open-loop so far) |
-| Evaluation | Notebook procedure from the paper period | Held-out set only; validation checkpoints; full workout |
-| Model path in the text | Hybrid model (AdaFS + Equation 9) | Original checkpoint: linear emission; other stacks optional |
+This repository keeps the original paper-period artifacts and adds stricter
+post-publication reevaluation scripts. The published result and the clean
+reevaluation results should be cited with their protocol.
 
-The notebook recorded about 5.07 BPM MAE. The paper states 5.2 BPM as the average.
+| Item | Published paper | Clean reevaluation in this repository |
+|------|-----------------|----------------------------------------|
+| DBN headline MAE | 5.2 BPM | 8.12 BPM strict train-prior; 7.37 BPM sequential-history |
+| Evaluation | Notebook procedure from the paper period | Held-out reporting; validation checkpoints; full workout |
+| ODE comparison | Hybrid ODE 6.1 BPM from the cited Apple/Nazaret study | Hybrid ODE on FitRec: 8.79 BPM mean workout MAE |
+| Model path in the text | Hybrid model (AdaFS + Equation 9) | Original checkpoint: linear emission; paper-style components available as explicit flags |
 
-That figure is **not** the same as a held-out full-workout result under the standard protocol.
+The notebook recorded about 5.07 BPM MAE, which the paper reports as 5.2 BPM.
+That figure is a real notebook output, but it is **not** the same metric as the
+held-out full-workout results produced by the reevaluation scripts.
+
+Under the clean FitRec held-out full-workout evaluation setting, the DBN model
+remains better than the rerun Hybrid ODE baseline:
+
+| Model | Mean workout MAE | Pooled MAE | Pooled RMSE |
+|-------|-----------------:|-----------:|------------:|
+| DBN strict train-prior | 8.12 BPM | 8.04 BPM | 11.19 BPM |
+| Hybrid ODE FitRec baseline | 8.79 BPM | 8.61 BPM | 12.37 BPM |
 
 See the package README and `FINDINGS.md` for full detail.
 
