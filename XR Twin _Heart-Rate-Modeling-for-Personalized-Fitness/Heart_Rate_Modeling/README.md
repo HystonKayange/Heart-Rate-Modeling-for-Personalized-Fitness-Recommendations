@@ -100,7 +100,7 @@ protocol," because those numbers came from different evaluation contexts.
 
 ---
 
-## 3. Public figures
+## 3. Figures
 
 **Location:** `examples/figures/public/`
 
