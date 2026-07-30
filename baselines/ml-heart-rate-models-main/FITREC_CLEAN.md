@@ -1,4 +1,4 @@
-# Running the hybrid ODE baseline on FitRec (clean protocol)
+# Running the hybrid ODE baseline on FitRec
 
 Yes — **this codebase is built for FitRec / Endomondo**, not only Apple data.
 
