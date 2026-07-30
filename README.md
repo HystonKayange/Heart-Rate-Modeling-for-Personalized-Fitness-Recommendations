@@ -27,6 +27,10 @@ ODE baseline on FitRec:
 
 [`baselines/ml-heart-rate-models-main/FITREC_CLEAN.md`](baselines/ml-heart-rate-models-main/FITREC_CLEAN.md)
 
+Third-party notices:
+
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+
 Public figures:
 
 [`Heart_Rate_Modeling/examples/figures/public/`](XR%20Twin%20_Heart-Rate-Modeling-for-Personalized-Fitness/Heart_Rate_Modeling/examples/figures/public/)
