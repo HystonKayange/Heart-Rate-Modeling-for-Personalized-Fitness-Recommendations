@@ -1,0 +1,52 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite the associated paper and this software repository."
+title: "Heart Rate Modeling for Personalized Fitness and XR Rehabilitation"
+type: software
+authors:
+  - family-names: Kayange
+    given-names: Hyston
+  - family-names: Mun
+    given-names: Jonghyeok
+  - family-names: Park
+    given-names: Yohan
+  - family-names: Choi
+    given-names: Jongsun
+  - family-names: Choi
+    given-names: Jaeyoung
+repository-code: "https://github.com/HystonKayange/Personalized-Heart-Rate-Model-for-XR-Custom-Coaching"
+license: MIT
+keywords:
+  - heart-rate modeling
+  - heart-rate prediction
+  - wearable data
+  - personalized fitness
+  - XR rehabilitation
+  - exercise physiology
+  - FitRec
+  - Endomondo
+  - time-series modeling
+  - physiological modeling
+  - dynamic Bayesian networks
+  - PyTorch
+  - digital health
+date-released: "2026-07-31"
+preferred-citation:
+  type: article
+  title: "A Hybrid Approach to Modeling Heart Rate Response for Personalized Fitness Recommendations Using Wearable Data"
+  authors:
+    - family-names: Kayange
+      given-names: Hyston
+    - family-names: Mun
+      given-names: Jonghyeok
+    - family-names: Park
+      given-names: Yohan
+    - family-names: Choi
+      given-names: Jongsun
+    - family-names: Choi
+      given-names: Jaeyoung
+  journal: "Electronics"
+  year: 2024
+  volume: 13
+  issue: 19
+  doi: "10.3390/electronics13193888"
+  url: "https://doi.org/10.3390/electronics13193888"
