@@ -1,6 +1,16 @@
-# XR Twin Heart Rate Prediction
+# Heart Rate Modeling for Personalized Fitness and XR Rehabilitation
 
-This repository predicts heart rate from workout data for fitness and XR rehabilitation research.
+This repository provides PyTorch code, evaluation protocols, and
+reproducibility notes for **modeling heart-rate response from wearable workout
+data**. The work supports personalized fitness, exercise physiology research,
+and XR rehabilitation systems that adapt coaching to individual users.
+
+## Keywords
+
+heart-rate modeling, heart-rate prediction, wearable data, personalized
+fitness, XR rehabilitation, exercise physiology, FitRec, Endomondo, time-series
+modeling, physiological modeling, dynamic Bayesian networks, PyTorch,
+digital health
 
 ## Reference paper
 
@@ -30,6 +40,10 @@ ODE baseline on FitRec:
 Third-party notices:
 
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+
+Citation metadata:
+
+[`CITATION.cff`](CITATION.cff)
 
 Public figures:
 
